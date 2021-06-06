@@ -4,6 +4,8 @@
 #include <math.h>
 #include <string>
 #include <vector>
+#include <iostream>
+#include "spline.h"
 
 // for convenience
 using std::string;
@@ -152,6 +154,74 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
   double y = seg_y + d*sin(perp_heading);
 
   return {x,y};
+}
+
+
+void printTelemetry(double x, double y, double s, double d, double yaw, double speed){
+    static int noCalls = 0;
+
+    if(noCalls == 100){
+        std::cout << "### Vehicle Data ###" << std::endl;
+        std::cout << "  x = " << x << "  y = " << y << std::endl;
+        std::cout << "  s = " << s << "  d = " << d << std::endl;
+        std::cout << "  yaw = " << yaw << "  speeed = " << speed << std::endl;
+        noCalls = 0;
+    }
+    
+    noCalls++;
+}
+
+double getSLoc(double s, double s_car, double s_max){
+
+    if(s > s_car){
+        return s - s_car;
+    }
+    else
+    {
+        return s + s_max - s_car;
+    } 
+}
+
+// shifts the coordinates of the x an y list of coordinates to the vehice
+// reference frame.
+void global2Local(vector<double> &x, vector<double> &y, double x_car, double y_car, double car_yaw){
+
+    for (int i = 0; i < x.size(); i++)
+    {
+        double shift_x = x[i] - x_car;
+        double shift_y = y[i] - y_car;
+
+        x[i] = (shift_x * cos(0-car_yaw) - shift_y * sin(0-car_yaw));
+        y[i] = (shift_x * sin(0-car_yaw) + shift_y * cos(0-car_yaw));
+    }
+}
+
+
+// This is a simple bisection algorithm to sampe the splines.
+// Choosing this methode increases the accuracy, especially for trajectories with high curvature
+double sampleTrajectory(tk::spline sObj, double dist, double x0){
+  double phi_n = pi()/4;
+  double lower_bnd = 0;
+  double upper_bnd = pi()/2;
+  double y0 = sObj(x0);
+
+
+  double x_n = 0, y_n = 0, r_n = 0;
+  while(abs(dist - r_n)/dist >= 0.01){
+    x_n = dist*cos(phi_n) + x0;
+    y_n = sObj(x_n);
+    r_n = sqrt((x_n - x0)*(x_n - x0) + (y_n - y0)*(y_n - y0));
+
+    if(r_n < dist){
+      upper_bnd = phi_n;
+      phi_n -= (phi_n - lower_bnd)/2;
+    }else {
+      lower_bnd = phi_n;
+      phi_n += (upper_bnd - phi_n)/2;
+    }
+
+  }
+  return x_n;
 }
 
 #endif  // HELPERS_H

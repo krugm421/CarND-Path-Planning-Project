@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/ad-sandbox/SDND/Project_7/CarND-Path-Planning-Project/CarND-Path-Planning-Project/build",
+  "command": "/usr/bin/g++-6    -g   -std=c++11 -o CMakeFiles/path_planning.dir/src/main.cpp.o -c /home/ad-sandbox/SDND/Project_7/CarND-Path-Planning-Project/CarND-Path-Planning-Project/src/main.cpp",
+  "file": "/home/ad-sandbox/SDND/Project_7/CarND-Path-Planning-Project/CarND-Path-Planning-Project/src/main.cpp"
+}
+]

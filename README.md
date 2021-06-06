@@ -1,6 +1,24 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
    
+## Summary
+This project deals with the problems of behavior planning and trajectory planing for highway driving scenario
+
+#### Behavior planning
+The underlying state chart consists of the following states: 
+![alt text](StateChart.eps)
+
+
+I am explicitely distinguishing between approaching and following a leading vehicle. In the 'approaching' state, which will be triggerd whe reaching the constant appoach distance, the ego vehicles speed is linearely reduced until both vehicles match speed. Once that state is done and the following distance is reached or suddely an other car changes to our lane below the following distance, speed will be further increased to increase the distance. 
+
+Behavior planing can be found ... . In the first step the step the model of the surounding world is check which would be supplied to the behavior paner by the sensor fusion module. I am fist checking for cars in the same lane as the ego vehicle, 
+
+#### Trajectory planning
+Dependent on the current state the trajectory planer will find matching trajectories. For the calculation of the trajectories spline fitting is used (see spline.h) as seconray source. 
+
+To produce a new trajectory the planner initializes the spline with the remaining unconsumed waypoints from the previously generated trajectory and then extends the spline to points well ahead of the car and within the lane selected by the behavioral planner. This approach ensures smooth transitions from the previous trajectory to the new goals in reponse to changes in behavior state, e.g. switching from following to lane change requires a trajectory that avoids sudden jerks as the vehicle's path is adjusted to switch lanes.
+
+
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
 
