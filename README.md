@@ -10,7 +10,7 @@ This project deals with the problems of behavior planning and trajectory planing
 
 #### Behavior planning
 The underlying state chart consists of the following states: 
-![alt text](image1)
+![alt text][image1]
 
 
 I am explicitely distinguishing between approaching and following a leading vehicle. In the 'approaching' state, which will be triggerd whe reaching the constant appoach distance, the ego vehicles speed is linearely reduced until both vehicles match speed. Once that state is done and the following distance is reached or suddely an other car changes to our lane below the following distance, speed will be further increased to increase the distance. 
