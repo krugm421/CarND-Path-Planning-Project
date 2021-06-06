@@ -6,162 +6,37 @@
 Self-Driving Car Engineer Nanodegree Program
    
 ## Summary
-This project deals with the problems of behavior planning and trajectory planing for highway driving scenario
+This project deals with the problems of behavior planning and trajectory planing for highway driving scenario.
 
 #### Behavior planning
-The underlying state chart consists of the following states: 
+The underlying state chart of the behavior planing module consists of the following states. 
 ![alt text][image1]
 
 
-I am explicitely distinguishing between approaching and following a leading vehicle. In the 'approaching' state, which will be triggerd whe reaching the constant appoach distance, the ego vehicles speed is linearely reduced until both vehicles match speed. Once that state is done and the following distance is reached or suddely an other car changes to our lane below the following distance, speed will be further increased to increase the distance. 
+I am explicitely distinguishing between approaching and following a leading vehicle. In the 'approaching' state, which will be triggerd when reaching the constant appoach distance, the ego vehicles speed is linearely reduced until both vehicles match speed. Once that state is done and the following distance is reached or suddely an other car changes to our lane below the following distance, speed will be further increased to increase the distance. In both the 'approaching' and following state the ego vehicle will try to change lanes and take over slower vehicles.
 
-Behavior planing can be found ... . In the first step the step the model of the surounding world is check which would be supplied to the behavior paner by the sensor fusion module. I am fist checking for cars in the same lane as the ego vehicle, 
+Behavior planing can be found in lines 135 - 267 in main.cpp. In the first step the model of the surounding world is check which would be supplied to the behavior paner by the sensor fusion module. Information gathered here will later on be used for decision making. I am fist checking for cars in the same lane as the ego vehicle and the distance is below the 'approach' or 'follow' distance. If that is the case I am checking if a lanechange to the left or right is allowed. The criterion for allowing a lane change is met if the difference in the longitudinal distance after one sample step is above minimum allowed distance between the ego vehicle and vehicles in the lane directly left or right of the current lane. The prediction of the position of ego vehicle and potential vehicles on the neighboring lanes is done under the assumption that all vehicles will keep their speed. If now lane change is allowed we would transition to the 'appoaching' or 'following' state dependent on the longitudinal distance to the leading vehicle.
+
+With the information based on the sensor fusion we will now issue commands to the path planer (lines 218 - 267). If we encountered now vehicle below the 'approaching' distance the desired lane will be keept and the ego vehicles velocity setpoint will be increased until the speed limit of 50mph is reached. If below 'following' or 'approaching' distance and a lane change is allowed the current speed will be keept and the desired lane will be changed. Lane changes to the left lane are implicitely prioritized. A lane change is only allowed if no lane change is currently ongoing. This forces the car to finish lane changes and prevents frequent back and forth between lanes in case there is a car in the current and desired lane with roughly the same distance. A lane change is regarded as finished if the ego vehicle is within a 10% corridor from the lanes center. If we are within the 'approaching' distance the velocity setpoint will be decreased until ego vehicle and leading vehicle have zero relative velocity. If the 'following' distance is reached the ego vehicles speed will be decreased further to increase distance to a safe level.
 
 #### Trajectory planning
-Dependent on the current state the trajectory planer will find matching trajectories. For the calculation of the trajectories spline fitting is used (see spline.h) as seconray source. 
+The trajectory planer is a modified version of the apporach presented in the FAQ video. Relevant code lines are 266 - 377 in main.cpp. 
 
-To produce a new trajectory the planner initializes the spline with the remaining unconsumed waypoints from the previously generated trajectory and then extends the spline to points well ahead of the car and within the lane selected by the behavioral planner. This approach ensures smooth transitions from the previous trajectory to the new goals in reponse to changes in behavior state, e.g. switching from following to lane change requires a trajectory that avoids sudden jerks as the vehicle's path is adjusted to switch lanes.
+If ther are points queued up which have not been realized in the last sample step those will be queued up again. Contrary to FAQ I chose to only queue up a maximum up 10 points. This helps to be able to react faster to leading vehicles and reduced the colissions significantly, e.g. if a car suddely changes to the ego vehicles current lane. 
 
+For updating the trajectory the spline library is used. First a spline is fitted through five points. Points one and two are either the last two points which have not jet been realized or in case no points are queued up the current and previos position of the ego vehicle. This ensures that the trajectory is continious and updates to the trajectory will be tangential to the path in the past. The other three points are in fixed distances allong the maps reference line. I chose a spacing for the s-coordinates of 30, 60, and 90 meters. Dependend on the desired lane the d-coordinates of those points will be determined to either be in the same or desired lane. The splines are functions y(x) where x and y are coordinates relative to the last point from the previos sample step or the current position. Pose is determind by the current or future yaw angle.
 
-### Simulator.
-You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
+The spline will now be samped to provide position updates, the simulator will realize each provided point every 20ms. With the sampling methode presented in the FAQ I encountered some issues which are caused by the linear approximation which is used to calculate x values. In case of splines with incresing curvature this methode will get increasingly inacurate which prevents points to be spaced evenly along the spline. Consequentually this caused vehicle speeds higher than the allowed 50mph on high-curvature segments of the track or acceleration and jerk outside of the allowed margin when changing lanes. 
 
-To run the simulator on Mac/Linux, first make the binary file executable with the following command:
-```shell
-sudo chmod u+x {simulator_file_name}
-```
+I am instead using a simple methode based of bisection. The algorithm can be found in helpers.h line 202 in the 'sampleTrajectory' function. I am basically calculating where the spline intersects a circle, with a radius which is determined by the distance the ego vehicle should travel in one simulator step. Or in other words by the product of desired velocity and the simulators sample time (20ms). The algorithm is angle based and would start to calulate the splines y value at 45 deg of the circle, or to be precise at x = cos(45 deg). The boundaries of the angle are initialized between 0 and 90 deg. After that the euclidian distace between the new and preceeding x/y corrinates will be calculated. If that distance is smaller than the desired radius the point of intersection is at a smaller angle, the upper boundry will be set to the current angle and the angle will set to the middle of the new interval. In the same way if the distance is bigger the intersection is at a bigger angle, the lower boundry will be updated with the current angle and angle will be set to the middle of the new interval as well. 
 
-### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
+### Reflection
+The algorithm is able to drive the ego vehicle for at least the required distance while keeping the desired speed, not causing a collision or violating the acceleration, speed and jerk limits, at leaset for most of my simulation runs. However, there is certainly room for improvement.
 
-#### The map of the highway is in data/highway_map.txt
-Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
+The implementation of decision making is more or less unstructured which will make it hard to maintain and extend the code. For better maintainability it will be best to use a recognizable design pattern for a state machine where it is more obvious how transitions are triggered and what actions are carried out in each state. 
 
-The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554.
+Currently the prediction of the ego vehicle and non-ego vehicles are carried out with the assumption that they will keep constant speed. As this is is not the case in the real world, better predictions should be possible based on a motion model e.g. by using a Kalman filter.
 
-## Basic Build Instructions
+Also, the spline based approach for the calculation of the trajectory does't allow a direct consideration of jerk or acceleration boundry conditions. As an alternative to the spline based approch path planing can be solved e.g. with the jerk minimizing polynomial methode presented in the lectures 
 
-1. Clone this repo.
-2. Make a build directory: `mkdir build && cd build`
-3. Compile: `cmake .. && make`
-4. Run it: `./path_planning`.
-
-Here is the data provided from the Simulator to the C++ Program
-
-#### Main car's localization Data (No Noise)
-
-["x"] The car's x position in map coordinates
-
-["y"] The car's y position in map coordinates
-
-["s"] The car's s position in frenet coordinates
-
-["d"] The car's d position in frenet coordinates
-
-["yaw"] The car's yaw angle in the map
-
-["speed"] The car's speed in MPH
-
-#### Previous path data given to the Planner
-
-//Note: Return the previous list but with processed points removed, can be a nice tool to show how far along
-the path has processed since last time. 
-
-["previous_path_x"] The previous list of x points previously given to the simulator
-
-["previous_path_y"] The previous list of y points previously given to the simulator
-
-#### Previous path's end s and d values 
-
-["end_path_s"] The previous list's last point's frenet s value
-
-["end_path_d"] The previous list's last point's frenet d value
-
-#### Sensor Fusion Data, a list of all other car's attributes on the same side of the road. (No Noise)
-
-["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
-
-## Details
-
-1. The car uses a perfect controller and will visit every (x,y) point it recieves in the list every .02 seconds. The units for the (x,y) points are in meters and the spacing of the points determines the speed of the car. The vector going from a point to the next point in the list dictates the angle of the car. Acceleration both in the tangential and normal directions is measured along with the jerk, the rate of change of total Acceleration. The (x,y) point paths that the planner recieves should not have a total acceleration that goes over 10 m/s^2, also the jerk should not go over 50 m/s^3. (NOTE: As this is BETA, these requirements might change. Also currently jerk is over a .02 second interval, it would probably be better to average total acceleration over 1 second and measure jerk from that.
-
-2. There will be some latency between the simulator running and the path planner returning a path, with optimized code usually its not very long maybe just 1-3 time steps. During this delay the simulator will continue using points that it was last given, because of this its a good idea to store the last points you have used so you can have a smooth transition. previous_path_x, and previous_path_y can be helpful for this transition since they show the last points given to the simulator controller with the processed points already removed. You would either return a path that extends this previous path or make sure to create a new path that has a smooth transition with this last path.
-
-## Tips
-
-A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
-
----
-
-## Dependencies
-
-* cmake >= 3.5
-  * All OSes: [click here for installation instructions](https://cmake.org/install/)
-* make >= 4.1
-  * Linux: make is installed by default on most Linux distros
-  * Mac: [install Xcode command line tools to get make](https://developer.apple.com/xcode/features/)
-  * Windows: [Click here for installation instructions](http://gnuwin32.sourceforge.net/packages/make.htm)
-* gcc/g++ >= 5.4
-  * Linux: gcc / g++ is installed by default on most Linux distros
-  * Mac: same deal as make - [install Xcode command line tools]((https://developer.apple.com/xcode/features/)
-  * Windows: recommend using [MinGW](http://www.mingw.org/)
-* [uWebSockets](https://github.com/uWebSockets/uWebSockets)
-  * Run either `install-mac.sh` or `install-ubuntu.sh`.
-  * If you install from source, checkout to commit `e94b6e1`, i.e.
-    ```
-    git clone https://github.com/uWebSockets/uWebSockets 
-    cd uWebSockets
-    git checkout e94b6e1
-    ```
-
-## Editor Settings
-
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
 
