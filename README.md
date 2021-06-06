@@ -8,9 +8,9 @@ Self-Driving Car Engineer Nanodegree Program
 ## Summary
 This project deals with the problems of behavior planning and trajectory planing for highway driving scenario.
 
-Behavior planing includes the interpretation of the moddeled world sorounding the ego vehicele and the planing of apropriate actions based on the ego vehicles goals and the environmental conditions conditions.
+Behavior planing includes the interpretation of the modeled world so rounding the ego vehicle and the planing of appropriate actions based on the ego vehicles goals and the environmental conditions.
 
-Trajectory or Path Planing discribes the generation of executable commands to a vehicles longitudinal and lateral control. In the case of this project, this is a trajectory which describes positions over time neglecting the vehicle dynamics.
+Trajectory or Path Planing describes the generation of executable commands to a vehicles longitudinal and lateral control. In the case of this project, this is a trajectory which describes positions over time, neglecting the vehicle dynamics.
 
 #### Behavior planning
 The underlying state chart of the behavior planing module consists of the following states. 
